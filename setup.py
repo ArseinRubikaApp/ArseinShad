@@ -3,7 +3,7 @@ import re
 from setuptools import setup,find_packages
 
 
-requires = ["pycryptodome==3.16.0","aiohttp==3.8.3","asyncio==3.4.3","httpx==0.26.0","tinytag==1.10.1","mutagen==1.47.0","pillow==12.0.0","httpx[http2]","nest_asyncio==1.6.0"]
+requires = ["pycryptodome==3.16.0","aiohttp>=3.13.2","asyncio==3.4.3","httpx==0.26.0","tinytag==1.10.1","mutagen==1.47.0","pillow==12.0.0","httpx[http2]","nest_asyncio==1.6.0"]
 _long_description = """
 
 ## ArseinShad
