@@ -1459,7 +1459,7 @@ class Messenger:
             ),
         ).show()
 
-    def uploadAvatar(self, guid, main, thumbnail=None):
+    def uploadAvatar(self, main, thumbnail=None):
         mainID = str(self.Upload.uploadFile(main)[0]["id"])
         thumbnailID = str(self.Upload.uploadFile(thumbnail or main)[0]["id"])
         return GetDataMethod(
@@ -1468,7 +1468,6 @@ class Messenger:
                 "json",
                 "uploadAvatar",
                 {
-                    "object_guid": guid,
                     "thumbnail_file_id": thumbnailID,
                     "main_file_id": mainID,
                 },
