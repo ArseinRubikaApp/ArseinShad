@@ -1444,14 +1444,13 @@ class Messenger:
             args=("json", "getAvatars", {"object_guid": guid}, self.cli),
         ).show()
 
-    def uploadAvatar_replay(self, guid, files_ide):
+    def uploadAvatar_replay(self, files_ide):
         return GetDataMethod(
             target=self.methods.methodsShad,
             args=(
                 "json",
                 "uploadAvatar",
                 {
-                    "object_guid": guid,
                     "thumbnail_file_id": files_ide,
                     "main_file_id": files_ide,
                 },
