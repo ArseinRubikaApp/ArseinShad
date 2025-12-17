@@ -62,7 +62,7 @@ async def http(
                         ),
                         "auth": auth,
                         "data_enc": Enc.encrypt(dumps(js)),
-                        "sign": enc.makeSignFromData(Enc.encrypt(dumps(js))),
+                        "sign": Enc.makeSignFromData(Enc.encrypt(dumps(js))),
                     }
                 ),
             )
