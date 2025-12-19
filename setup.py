@@ -11,7 +11,7 @@ requires = [
     "mutagen>=1.47.0",
     "nest_asyncio>=1.6.0",
     "pillow==9.5.0; python_version < '3.10'",
-    "pillow>=11.3.0; python_version >= '3.10'"
+    "pillow>=12.0.0; python_version >= '3.10'"
 ]
 _long_description = """
 
