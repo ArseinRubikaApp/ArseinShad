@@ -33,7 +33,7 @@ from arsein_shad.Zedcontent import Antiadvertisement
 ### How to install the library
 
 ``` bash
-pip install ArseinShad==2.0.0
+pip install ArseinShad==2.5.0
 ```
 
 ### My ID in Telegram
@@ -82,7 +82,7 @@ bot.sendMessage(gap,"libraryArsein")
 ### Installing
 
 ``` bash
-pip install ArseinShad==2.0.0
+pip install ArseinShad==2.5.0
 ```
 
 ### Or
@@ -90,7 +90,7 @@ pip install ArseinShad==2.0.0
 And if pip was filtered, enter the following code in the terminal to install the library
 
 ``` bash
-pip install --trusted-host https://pypi.tuna.tsinghua.edu.cn -i https://pypi.tuna.tsinghua.edu.cn/simple/ArseinShad==2.0.0
+pip install --trusted-host https://pypi.tuna.tsinghua.edu.cn -i https://pypi.tuna.tsinghua.edu.cn/simple/ArseinShad==2.5.0
 ```
 
 ## ❌ یا اگه با روش بالا نصب نشد
