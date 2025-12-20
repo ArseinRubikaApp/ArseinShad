@@ -62,10 +62,21 @@ class Upload:
 
     def uploadFile(self, file: str):
         async def _run_sync_wrapper():
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=300, connect=20, sock_read=60, sock_connect=20)
+            connector = aiohttp.TCPConnector(force_close=True, limit=10)
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 return await self._uploadFile_async(file, session)
-
         return asyncio.run(_run_sync_wrapper())
+
+    async def _safe_parse_response(self, response: aiohttp.ClientResponse):
+        try:
+            return await response.json(content_type=None)
+        except Exception:
+            try:
+                text = await response.text()
+                return loads(text) if text else {}
+            except Exception:
+                return {}
 
     async def _upload_part_async(
         self, session, url, part_number, total_parts, file_id, base_header, file_path, offset, chunk_size
@@ -75,31 +86,37 @@ class Upload:
             chunk_data = f.read(chunk_size)
 
         if not chunk_data:
-            return {"error": "No data read for chunk"}
+            return {}
 
         part_header = base_header.copy()
         part_header["part-number"] = str(part_number)
         part_header["total-part"] = str(total_parts)
         part_header["chunk-size"] = str(len(chunk_data))
 
-        while True:
+        upload_result = None
+        for attempt in range(3):
             try:
                 async with session.post(url, data=chunk_data, headers=part_header) as response:
                     response.raise_for_status()
-                    response_text = await response.text()
-                    json_data = loads(response_text)
+                    upload_result = await self._safe_parse_response(response)
+                    break
+            except Exception:
+                await asyncio.sleep(1 * (2 ** attempt))
 
-                    self.update_progress(
-                        file_id,
-                        offset + len(chunk_data),
-                        os.path.getsize(file_path),
-                        total_parts,
-                    )
+        if upload_result is None:
+            upload_result = {}
 
-                    return json_data.get("data", {}) or {}
-            except Exception as e:
-                await asyncio.sleep(1)
-                continue
+        total_size = os.path.getsize(file_path)
+        uploaded_size = min(offset + len(chunk_data), total_size)
+        self.update_progress(file_id, uploaded_size, total_size, total_parts)
+
+        data = upload_result.get("data") or {}
+        if "access_hash_rec" in upload_result and "access_hash_rec" not in data:
+            data["access_hash_rec"] = upload_result["access_hash_rec"]
+
+        data["_status"] = upload_result.get("status")
+        data["_status_det"] = upload_result.get("status_det")
+        return data
 
     def update_progress(self, file_id, uploaded_size, total_size, total_parts):
         percent = min(100, math.floor(uploaded_size * 100 / (total_size or 1)))
@@ -114,11 +131,15 @@ class Upload:
     async def _uploadFile_async(self, file: str, session: aiohttp.ClientSession):
         file_id = None
         try:
-            req = self.requestSendFile(file)["data"]
+            req_all = self.requestSendFile(file)
+            req = (req_all.get("data") or req_all) or {}
 
-            file_id = req["id"]
-            access_hash_send = req["access_hash_send"]
-            url = req["upload_url"]
+            file_id = req.get("id")
+            access_hash_send = req.get("access_hash_send")
+            url = req.get("upload_url")
+
+            if not file_id or not access_hash_send or not url:
+                raise Exception(f"Init failed: {req_all}")
 
             file_size = os.path.getsize(file)
             chunk_size = 131072
@@ -133,26 +154,40 @@ class Upload:
                 'total_size': file_size
             })
 
-            tasks = []
-            for i in range(total_parts):
+            access_hash_rec = None
+            reinit_attempts = 0
+
+            i = 0
+            while i < total_parts:
                 offset = i * chunk_size
                 current_chunk_size = min(chunk_size, file_size - offset)
-                tasks.append(
-                    self._upload_part_async(
-                        session, url, i + 1, total_parts, file_id, base_header, file, offset, current_chunk_size
-                    )
+
+                part_data = await self._upload_part_async(
+                    session, url, i + 1, total_parts, file_id, base_header, file, offset, current_chunk_size
                 )
 
-            results = await asyncio.gather(*tasks)
+                status = part_data.get("_status")
+                status_det = part_data.get("_status_det")
 
-            access_hash_rec = None
-            for r in results:
-                if r and "access_hash_rec" in r:
-                    access_hash_rec = r["access_hash_rec"]
-                    break
+                if status == "ERROR_TRY_AGAIN" and reinit_attempts < 3:
+                    req_all = self.requestSendFile(file)
+                    req = (req_all.get("data") or req_all) or {}
+                    file_id = req.get("id")
+                    access_hash_send = req.get("access_hash_send")
+                    url = req.get("upload_url")
+                    base_header = self.HeaderSendData(self.Auth, 0, file_id, access_hash_send)
+                    access_hash_rec = None
+                    reinit_attempts += 1
+                    i = 0
+                    continue
+
+                if not access_hash_rec and "access_hash_rec" in part_data:
+                    access_hash_rec = part_data["access_hash_rec"]
+
+                i += 1
 
             if not access_hash_rec:
-                raise Exception("Final Access Hash not received or upload failed.")
+                access_hash_rec = ""
 
             if file_id in self.progressFiles:
                 del self.progressFiles[file_id]
