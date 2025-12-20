@@ -34,7 +34,6 @@ class Upload:
         self.progressFiles = {}
         self.uploadQueue = type('UploadQueue', (object,), {'next': lambda self, msg: None})()
 
-
     def HeaderSendData(self, auth, chunksize_len, fileid, accesshashsend):
         return {
             "access-hash-send": accesshashsend,
@@ -67,16 +66,14 @@ class Upload:
                 return await self._uploadFile_async(file, session)
 
         return asyncio.run(_run_sync_wrapper())
-        
 
     async def _upload_part_async(
         self, session, url, part_number, total_parts, file_id, base_header, file_path, offset, chunk_size
     ):
-        
         with open(file_path, "rb") as f:
             f.seek(offset)
             chunk_data = f.read(chunk_size)
-        
+
         if not chunk_data:
             return {"error": "No data read for chunk"}
 
@@ -89,20 +86,23 @@ class Upload:
             try:
                 async with session.post(url, data=chunk_data, headers=part_header) as response:
                     response.raise_for_status()
-                    
                     response_text = await response.text()
                     json_data = loads(response_text)
-                    
-                    self.update_progress(file_id, offset + len(chunk_data), os.path.getsize(file_path), total_parts)
-                    
-                    return json_data.get("data", {})
-            except Exception as e:
-                await asyncio.sleep(1) 
 
+                    self.update_progress(
+                        file_id,
+                        offset + len(chunk_data),
+                        os.path.getsize(file_path),
+                        total_parts,
+                    )
+
+                    return json_data.get("data", {}) or {}
+            except Exception as e:
+                await asyncio.sleep(1)
+                continue
 
     def update_progress(self, file_id, uploaded_size, total_size, total_parts):
         percent = min(100, math.floor(uploaded_size * 100 / (total_size or 1)))
-        
         self.progressFiles[file_id] = {'percent': percent}
         self.uploadQueue.next({
             'file_id': file_id,
@@ -111,25 +111,21 @@ class Upload:
             'total_size': total_size
         })
 
-
     async def _uploadFile_async(self, file: str, session: aiohttp.ClientSession):
         file_id = None
         try:
-            
             req = self.requestSendFile(file)["data"]
-            
+
             file_id = req["id"]
             access_hash_send = req["access_hash_send"]
             url = req["upload_url"]
-            
+
             file_size = os.path.getsize(file)
             chunk_size = 131072
             total_parts = math.ceil(file_size / chunk_size)
 
-            
             base_header = self.HeaderSendData(self.Auth, 0, file_id, access_hash_send)
 
-            
             self.uploadQueue.next({
                 'file_id': file_id,
                 'uploaded_size': 0,
@@ -137,32 +133,30 @@ class Upload:
                 'total_size': file_size
             })
 
-            
             tasks = []
             for i in range(total_parts):
                 offset = i * chunk_size
                 current_chunk_size = min(chunk_size, file_size - offset)
-                
                 tasks.append(
                     self._upload_part_async(
                         session, url, i + 1, total_parts, file_id, base_header, file, offset, current_chunk_size
                     )
                 )
 
-            
             results = await asyncio.gather(*tasks)
 
-            
-            last_part_data = results[-1]
-            access_hash_rec = last_part_data.get("access_hash_rec")
-            
+            access_hash_rec = None
+            for r in results:
+                if r and "access_hash_rec" in r:
+                    access_hash_rec = r["access_hash_rec"]
+                    break
+
             if not access_hash_rec:
                 raise Exception("Final Access Hash not received or upload failed.")
-            
-            
+
             if file_id in self.progressFiles:
                 del self.progressFiles[file_id]
-                
+
             self.uploadQueue.next({
                 'file_id': file_id,
                 'percent': 100,
@@ -172,7 +166,6 @@ class Upload:
             return [req, access_hash_rec]
 
         except Exception as err:
-            
             if file_id and file_id in self.progressFiles:
                 del self.progressFiles[file_id]
             raise err
