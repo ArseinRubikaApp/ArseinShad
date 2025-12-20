@@ -1,5 +1,5 @@
 class copyright:
-    __Version__ = "2.0.0"
+    __Version__ = "2.5.0"
     CopyRight = print(
         f"\n\nArsein Shad library version {__Version__} and Api6 \n\n"
         + "Arsein Copyright (C) 2022 arianabasi Team ArianBOT\n\n\n\n"
