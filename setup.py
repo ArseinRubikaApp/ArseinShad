@@ -50,7 +50,7 @@ from arsein_shad.Zedcontent import Antiadvertisement
 ### How to install the library
 
 ``` bash
-pip install ArseinShad==2.0.0
+pip install ArseinShad==2.5.0
 ```
 
 ### My ID in Telegram
@@ -99,7 +99,7 @@ bot.sendMessage(gap,"libraryArsein")
 ### Installing
 
 ``` python
-pip install ArseinShad==2.0.0
+pip install ArseinShad==2.5.0
 ```
 
 ### Or
@@ -176,7 +176,7 @@ https://t.me/ArseinTeam
 
 setup(
     name = "ArseinShad",
-    version = "2.0.0",
+    version = "2.5.0",
     author = "arian abasi nedamane",
     author_email = "aryongram@gmail.com",
     description = (" library Robot Shad"),
